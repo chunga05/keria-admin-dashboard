@@ -27,6 +27,16 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
+    icon: <GridIcon />,
+    name: "Quản lý tài khoản",
+    path: "/duyet-thanh-vien",
+  },
+  {
+    icon: <GridIcon />,
+    name: "Quản lý Bài viết",
+    path: "post/create",
+  },
+  {
     name: "Quản lý Lời chúc",
     icon: <TableIcon />,
     path: "/wishes", 
