@@ -4,6 +4,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
+import { useAutoLogout } from "@/hooks/useAutoLogout";
 import React from "react";
 
 export default function AdminLayout({
@@ -11,6 +12,12 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Tự động đăng xuất sau 15 phút không tương tác và điều hướng về trang chủ/đăng nhập
+  useAutoLogout({
+    timeoutInMinutes: 15,
+    redirectPath: "/",
+  });
+
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   // Dynamic class for main content margin based on sidebar state
@@ -27,7 +34,7 @@ export default function AdminLayout({
       <Backdrop />
       {/* Main Content Area */}
       <div
-        className={`flex-1 transition-all  duration-300 ease-in-out ${mainContentMargin}`}
+        className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
       >
         {/* Header */}
         <AppHeader />
