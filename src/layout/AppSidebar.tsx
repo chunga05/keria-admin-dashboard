@@ -41,6 +41,11 @@ const navItems: NavItem[] = [
     path: "/progress",
   },
   {
+    icon: <GridIcon />,
+    name: "duyệt chặng",
+    path: "/stamps",
+  },
+  {
     icon: <PageIcon />,
     name: "Quản lý Bài viết",
     path: "/post/create",

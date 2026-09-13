@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: process.env.NEXT_PUBLIC_SUPABASE_HOSTNAME as string,
       },
+      {
+        protocol: 'https',
+        hostname: '**.r2.dev',
+      },
     ],
   },
   
