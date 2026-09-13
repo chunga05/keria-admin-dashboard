@@ -14,6 +14,7 @@ import {
   ChatIcon,
   BoxCubeIcon,
   TaskIcon,
+  HorizontaLDots,
 } from "../icons/index";
 
 type NavItem = {

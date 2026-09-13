@@ -312,7 +312,7 @@ export default function DashboardClient() {
                   key={p.id}
                   className="flex items-start gap-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-gray-800 p-3"
                 >
-                  {p.image_urls?.length > 0 && (
+                  {p.image_urls && p.image_urls.length > 0 && (
                     <img
                       src={p.image_urls[0]}
                       alt=""
