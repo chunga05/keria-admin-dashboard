@@ -9,11 +9,11 @@ import {
   TableIcon,
   UserCircleIcon,
   ChevronDownIcon,
-  HorizontaLDots,
   GroupIcon,
   PageIcon,
   ChatIcon,
   BoxCubeIcon,
+  TaskIcon,
 } from "../icons/index";
 
 type NavItem = {
@@ -33,6 +33,11 @@ const navItems: NavItem[] = [
     icon: <GroupIcon />,
     name: "Quản lý Tài khoản",
     path: "/duyet-thanh-vien",
+  },
+  {
+    icon: <TaskIcon />,
+    name: "Quản lý Chương trình",
+    path: "/progress",
   },
   {
     icon: <PageIcon />,
@@ -55,8 +60,6 @@ const navItems: NavItem[] = [
     path: "/profile",
   },
 ];
-
-
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
