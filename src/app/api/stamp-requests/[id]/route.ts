@@ -7,7 +7,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!serviceKey) {
   console.error("CẢNH BÁO: SUPABASE_SERVICE_ROLE_KEY CHƯA ĐƯỢC CẤU HÌNH TRONG .env.local!");
 }
-// Khởi tạo Supabase client quyền tối cao (Service Role) để bỏ qua hoàn toàn RLS
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -28,23 +28,17 @@ export async function PATCH(
     const requestId = Number(id);
 
     if (!requestId || isNaN(requestId)) {
-      return NextResponse.json(
-        { error: 'ID yêu cầu không hợp lệ!' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'ID yêu cầu không hợp lệ!' }, { status: 400 });
     }
 
     const body = await request.json();
-    const { action, adminNote } = body; // action: 'approved' | 'rejected'
+    const { action, adminNote } = body;
 
     if (!['approved', 'rejected'].includes(action)) {
-      return NextResponse.json(
-        { error: 'Hành động không hợp lệ!' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Hành động không hợp lệ!' }, { status: 400 });
     }
 
-    // 1. Dùng supabaseAdmin lấy thông tin yêu cầu cần duyệt
+    // 1. Lấy thông tin yêu cầu cần duyệt
     const { data: requestItem, error: fetchError } = await supabaseAdmin
       .from('stamp_requests')
       .select('id, user_id, stage_id, evidence_image_url, status')
@@ -57,13 +51,10 @@ export async function PATCH(
     }
 
     if (!requestItem) {
-      return NextResponse.json(
-        { error: `Không tìm thấy yêu cầu có ID = ${requestId}!` },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: `Không tìm thấy yêu cầu có ID = ${requestId}!` }, { status: 404 });
     }
 
-    // 2. Dùng supabaseAdmin cập nhật trạng thái và dọn rỗng cột ảnh
+    // 2. Cập nhật trạng thái yêu cầu
     const { error: updateError } = await supabaseAdmin
       .from('stamp_requests')
       .update({
@@ -79,26 +70,42 @@ export async function PATCH(
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    // 3. Nếu duyệt thành công -> Dùng supabaseAdmin cấp dấu sang bảng user_stamps
+    // 3. Nếu duyệt thành công -> Lấy passport của user rồi cấp dấu vào passport_stamps
     if (action === 'approved') {
-      const { error: userStampError } = await supabaseAdmin
-        .from('user_stamps')
-        .upsert(
-          {
-            user_id: requestItem.user_id,
-            stage_id: requestItem.stage_id,
-            request_id: requestItem.id,
-            received_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,stage_id' }
-        );
+      const { data: passport } = await supabaseAdmin
+        .from('passports')
+        .select('id')
+        .eq('user_id', requestItem.user_id)
+        .maybeSingle();
 
-      if (userStampError) {
-        console.warn('Cảnh báo cấp user_stamps:', userStampError.message);
+      if (passport) {
+        const { data: existingStamp } = await supabaseAdmin
+          .from('passport_stamps')
+          .select('id')
+          .eq('passport_id', passport.id)
+          .eq('stage_id', requestItem.stage_id)
+          .maybeSingle();
+
+        if (!existingStamp) {
+          const { error: insertStampError } = await supabaseAdmin
+            .from('passport_stamps')
+            .insert({
+              passport_id: passport.id,
+              stage_id: requestItem.stage_id,
+              request_id: requestItem.id,
+              received_at: new Date().toISOString(),
+            });
+
+          if (insertStampError) {
+            console.warn('Cảnh báo cấp passport_stamps thất bại:', insertStampError.message);
+          }
+        }
+      } else {
+        console.warn(`User ${requestItem.user_id} chưa có bảng passports!`);
       }
     }
 
-    // 4. Xóa ảnh trên Cloudflare R2 sau khi Database xử lý xong
+    // 4. Xóa ảnh trên Cloudflare R2 sau khi xử lý xong
     if (requestItem.evidence_image_url) {
       await deleteR2FileByUrl(requestItem.evidence_image_url);
     }

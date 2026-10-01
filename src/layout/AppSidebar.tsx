@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import {
   GridIcon,
-  TableIcon,
   UserCircleIcon,
   ChevronDownIcon,
   GroupIcon,
@@ -15,6 +14,10 @@ import {
   BoxCubeIcon,
   TaskIcon,
   HorizontaLDots,
+  CheckCircleIcon,
+  FolderIcon,
+  ListIcon,
+  EnvelopeIcon,
 } from "../icons/index";
 
 type NavItem = {
@@ -37,13 +40,18 @@ const navItems: NavItem[] = [
   },
   {
     icon: <TaskIcon />,
-    name: "Quản lý Chương trình",
+    name: "Dự án & Tiến độ",
     path: "/progress",
   },
   {
-    icon: <GridIcon />,
-    name: "duyệt chặng",
+    icon: <CheckCircleIcon />,
+    name: "Duyệt Yêu cầu Dấu",
     path: "/stamps",
+  },
+  {
+    icon: <FolderIcon />,
+    name: "Quản lý Project",
+    path: "/content",
   },
   {
     icon: <PageIcon />,
@@ -51,18 +59,23 @@ const navItems: NavItem[] = [
     path: "/post/create",
   },
   {
+    icon: <ListIcon />,
+    name: "Facebook Feed",
+    path: "/facebook",
+  },
+  {
+    icon: <EnvelopeIcon />,
     name: "Quản lý Lời chúc",
-    icon: <ChatIcon />,
     path: "/wishes",
   },
   {
-    name: "Quản lý Khung viền",
     icon: <BoxCubeIcon />,
+    name: "Khung viền Avatar",
     path: "/frame",
   },
   {
     icon: <UserCircleIcon />,
-    name: "Tài khoản",
+    name: "Hồ sơ cá nhân",
     path: "/profile",
   },
 ];

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useUsers } from "@/hooks/useUsers";
 import type { UserStatus } from "@/hooks/useUsers";
 
@@ -37,6 +37,10 @@ export default function PendingUsersPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    return () => clearTimeout(debounceTimer.current);
+  }, []);
 
   const handleSearch = (val: string) => {
     setSearch(val);

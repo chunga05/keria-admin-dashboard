@@ -1,4 +1,4 @@
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export const r2 = new S3Client({
   region: 'auto',
@@ -9,12 +9,41 @@ export const r2 = new S3Client({
   },
 });
 
+/**
+ * Upload một file (Buffer) lên Cloudflare R2.
+ * @param key         - Object key trong bucket (VD: "frames/abc.png")
+ * @param body        - Buffer hoặc Uint8Array nội dung file
+ * @param contentType - MIME type của file
+ * @returns Public URL của file vừa upload
+ */
+export async function uploadToR2(
+  key: string,
+  body: Buffer | Uint8Array,
+  contentType: string
+): Promise<string> {
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME!,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    })
+  );
+
+  // Public URL theo custom domain hoặc domain R2 mặc định (không có dấu / cuối)
+  const publicDomain = process.env.R2_PUBLIC_URL!.replace(/\/$/, '');
+  return `${publicDomain}/${key}`;
+}
+
+/**
+ * Xóa file khỏi Cloudflare R2 dựa vào public URL.
+ */
 export async function deleteR2FileByUrl(publicUrl?: string | null) {
   if (!publicUrl) return;
 
   try {
     const url = new URL(publicUrl);
-    // Bỏ dấu gạch chéo đầu để lấy đúng Object Key trên R2 (ví dụ: temp/abc.jpg)
+    // Bỏ dấu gạch chéo đầu để lấy đúng Object Key (VD: frames/abc.jpg)
     const fileKey = url.pathname.replace(/^\/+/, '');
 
     await r2.send(

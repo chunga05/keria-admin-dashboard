@@ -17,6 +17,19 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '**.r2.dev',
       },
+      // BỔ SUNG CẤU HÌNH HOSTNAME YOUTUBE VÀO ĐÂY
+      {
+        protocol: 'https',
+        hostname: 'www.youtube.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
     ],
   },
   

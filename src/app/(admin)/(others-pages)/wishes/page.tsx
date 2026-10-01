@@ -1,12 +1,28 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/lib/supabaseClient";
 
-// ─── Reactions badge ─────────────────────────────────────────────────────────
+import { useEffect, useState, useCallback, useRef, ChangeEvent } from "react";
+import {
+  FanWish,
+  BannedWord,
+  getBannedWords,
+  addBannedWord,
+  bulkInsertBannedWords,
+  deleteBannedWord,
+  getWishes,
+  toggleHideWish,
+  deleteWish,
+} from "@/hooks/wishService";
+
 function Reactions({
-  cry, wow, star, heart,
+  cry,
+  wow,
+  star,
+  heart,
 }: {
-  cry: number; wow: number; star: number; heart: number;
+  cry: number;
+  wow: number;
+  star: number;
+  heart: number;
 }) {
   const items = [
     { emoji: "😢", count: cry },
@@ -32,97 +48,155 @@ function Reactions({
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function WishManagementPage() {
-  const [wishes, setWishes] = useState<any[]>([]);
+  const [wishes, setWishes] = useState<FanWish[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "visible" | "hidden">("all");
 
-  // Word List
-  const [bannedWords, setBannedWords] = useState<any[]>([]);
+  // Word List State
+  const [bannedWords, setBannedWords] = useState<BannedWord[]>([]);
   const [newWord, setNewWord] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [totalCount, setTotalCount] = useState(0);
 
-  // ── Fetch wishes ──────────────────────────────────────────────────────────
+  // ── Data Fetching ──────────────────────────────────────────────────────────
   const fetchWishes = useCallback(
     async (page: number) => {
       setLoading(true);
-      const start = (page - 1) * itemsPerPage;
-      const end = start + itemsPerPage - 1;
-
-      let query = supabase
-        .from("fan_wishes")
-        .select("*, users(display_name, username, avatar_url)", { count: "exact" })
-        .range(start, end)
-        .order("created_at", { ascending: false });
-
-      if (filter === "visible") query = query.eq("is_hidden", false);
-      if (filter === "hidden") query = query.eq("is_hidden", true);
-
-      const { data, count, error } = await query;
-      if (!error) {
-        setWishes(data || []);
-        setTotalCount(count || 0);
+      try {
+        const { wishes: data, totalCount: count } = await getWishes(
+          page,
+          itemsPerPage,
+          filter
+        );
+        setWishes(data);
+        setTotalCount(count);
+      } catch (err: any) {
+        console.error("Lỗi lấy lời chúc:", err.message);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     },
-    [filter, itemsPerPage]
+    [filter]
   );
 
-  const fetchBannedWords = useCallback(async () => {
-    const { data } = await supabase
-      .from("banned_words")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setBannedWords(data || []);
+  const fetchBannedWordsData = useCallback(async () => {
+    try {
+      const data = await getBannedWords();
+      setBannedWords(data);
+    } catch (err: any) {
+      console.error("Lỗi lấy danh sách từ cấm:", err.message);
+    }
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [filter]);
 
-  // Banned words chỉ fetch 1 lần khi mount — không cần lặp lại theo filter/page
   useEffect(() => {
-    fetchBannedWords();
-  }, [fetchBannedWords]);
+    fetchBannedWordsData();
+  }, [fetchBannedWordsData]);
 
   useEffect(() => {
     fetchWishes(currentPage);
   }, [currentPage, fetchWishes]);
 
-  // ── Word list actions ────────────────────────────────────────────────────
+  // ── Word list actions ──────────────────────────────────────────────────────
   const handleAddWord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWord.trim()) return;
-    const { error } = await supabase
-      .from("banned_words")
-      .insert([{ word: newWord.trim().toLowerCase() }]);
-    if (error) alert("Lỗi: " + error.message);
-    else {
+
+    try {
+      await addBannedWord(newWord);
       setNewWord("");
-      fetchBannedWords();
+      fetchBannedWordsData();
+    } catch (error: any) {
+      alert("Lỗi: " + error.message);
     }
   };
 
   const handleDeleteWord = async (id: number) => {
-    await supabase.from("banned_words").delete().eq("id", id);
-    fetchBannedWords();
+    try {
+      await deleteBannedWord(id);
+      fetchBannedWordsData();
+    } catch (error: any) {
+      alert("Lỗi xoá từ: " + error.message);
+    }
   };
 
-  // ── Wish actions ─────────────────────────────────────────────────────────
+  // Nhập từ file text (.txt, .csv)
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      if (!content) {
+        setIsUploading(false);
+        return;
+      }
+
+      // Tách các từ qua xuống dòng (\n, \r) hoặc dấu phẩy (,)
+      const parsedWords = content
+        .split(/[\r\n,]+/)
+        .map((w) => w.trim().toLowerCase())
+        .filter((w) => w.length > 0);
+
+      if (parsedWords.length === 0) {
+        alert("File không chứa từ khóa hợp lệ.");
+        setIsUploading(false);
+        return;
+      }
+
+      try {
+        const res = await bulkInsertBannedWords(parsedWords);
+        
+        if (res.insertedCount === 0) {
+          alert(`Tất cả ${res.skippedCount} từ khóa trong file đều đã tồn tại từ trước!`);
+        } else {
+          alert(
+            `Thành công!\n- Đã thêm mới: ${res.insertedCount} từ\n- Đã bỏ qua: ${res.skippedCount} từ bị trùng`
+          );
+        }
+
+        fetchBannedWordsData();
+      } catch (err: any) {
+        alert("Lỗi nhập dữ liệu: " + err.message);
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
+  // ── Wish actions ───────────────────────────────────────────────────────────
   const handleDeleteWish = async (id: number) => {
     if (!confirm("Xoá lời chúc này?")) return;
-    await supabase.from("fan_wishes").delete().eq("id", id);
-    fetchWishes(currentPage);
+    try {
+      await deleteWish(id);
+      fetchWishes(currentPage);
+    } catch (err: any) {
+      alert("Lỗi xoá lời chúc: " + err.message);
+    }
   };
 
   const handleToggleHide = async (id: number, currentStatus: boolean) => {
-    await supabase.from("fan_wishes").update({ is_hidden: !currentStatus }).eq("id", id);
-    fetchWishes(currentPage);
+    try {
+      await toggleHideWish(id, currentStatus);
+      fetchWishes(currentPage);
+    } catch (err: any) {
+      alert("Lỗi cập nhật trạng thái: " + err.message);
+    }
   };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
@@ -131,7 +205,9 @@ export default function WishManagementPage() {
     <div className="space-y-6 p-4 md:p-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-black text-gray-800 dark:text-white">Quản lý Lời chúc</h1>
+        <h1 className="text-2xl font-black text-gray-800 dark:text-white">
+          Quản lý Lời chúc
+        </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Kiểm duyệt và lọc lời chúc từ fan
         </p>
@@ -139,17 +215,22 @@ export default function WishManagementPage() {
 
       {/* ── Word List Filter ── */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03] p-6">
-        <h3 className="mb-4 text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
-          🚫 Từ khóa Lọc (Word List Filter)
-        </h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
+            🚫 Từ khóa Lọc (Word List Filter)
+          </h3>
+          <span className="text-xs text-gray-400">
+            Tổng: {bannedWords.length} từ
+          </span>
+        </div>
 
-        <form onSubmit={handleAddWord} className="flex gap-3 mb-5">
+        <form onSubmit={handleAddWord} className="flex flex-wrap gap-3 mb-5">
           <input
             type="text"
             value={newWord}
             onChange={(e) => setNewWord(e.target.value)}
             placeholder="Nhập từ khóa cần cấm..."
-            className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm placeholder-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+            className="flex-1 min-w-[200px] rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm placeholder-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
           />
           <button
             type="submit"
@@ -157,9 +238,26 @@ export default function WishManagementPage() {
           >
             Thêm
           </button>
+
+          {/* Import File Text Button */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.csv"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="shrink-0 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition disabled:opacity-50"
+          >
+            {isUploading ? "Đang xử lý..." : "📁 Nhập file text"}
+          </button>
         </form>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
           {bannedWords.length === 0 ? (
             <p className="text-sm text-gray-400">Chưa có từ khóa nào.</p>
           ) : (
@@ -184,14 +282,14 @@ export default function WishManagementPage() {
 
       {/* ── Wishes Table ── */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-        {/* Table Header */}
         <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-bold text-gray-800 dark:text-white">💌 Danh sách Lời chúc</h3>
+            <h3 className="font-bold text-gray-800 dark:text-white">
+              💌 Danh sách Lời chúc
+            </h3>
             <p className="text-xs text-gray-400 mt-0.5">Tổng: {totalCount} lời chúc</p>
           </div>
 
-          {/* Filter tabs */}
           <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
             {(["all", "visible", "hidden"] as const).map((f) => (
               <button
@@ -209,7 +307,6 @@ export default function WishManagementPage() {
           </div>
         </div>
 
-        {/* Table Body */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -251,7 +348,6 @@ export default function WishManagementPage() {
                       key={item.id}
                       className="hover:bg-gray-50/70 dark:hover:bg-white/[0.02] transition-colors"
                     >
-                      {/* Người gửi */}
                       <td className="px-6 py-4">
                         {sender ? (
                           <div className="flex items-center gap-2">
@@ -283,14 +379,12 @@ export default function WishManagementPage() {
                         )}
                       </td>
 
-                      {/* Nội dung */}
                       <td className="px-6 py-4 max-w-[200px]">
                         <p className="line-clamp-2 text-sm text-gray-700 dark:text-gray-300">
                           {item.content}
                         </p>
                       </td>
 
-                      {/* Reactions */}
                       <td className="px-6 py-4 hidden md:table-cell">
                         <Reactions
                           cry={item.react_cry ?? 0}
@@ -300,7 +394,6 @@ export default function WishManagementPage() {
                         />
                       </td>
 
-                      {/* Trạng thái */}
                       <td className="px-6 py-4 hidden sm:table-cell">
                         {item.is_hidden ? (
                           <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-400">
@@ -313,12 +406,10 @@ export default function WishManagementPage() {
                         )}
                       </td>
 
-                      {/* Thời gian */}
                       <td className="px-6 py-4 text-xs text-gray-400 hidden lg:table-cell">
                         {new Date(item.created_at).toLocaleString("vi-VN")}
                       </td>
 
-                      {/* Actions */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button

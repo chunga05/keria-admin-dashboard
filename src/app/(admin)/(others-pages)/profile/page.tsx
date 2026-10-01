@@ -20,7 +20,6 @@ export default function Profile() {
         <div className="space-y-6">
           <UserMetaCard />
           <UserInfoCard />
-          <UserAddressCard />
         </div>
       </div>
     </div>

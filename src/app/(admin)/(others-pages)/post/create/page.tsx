@@ -43,6 +43,7 @@ function ConfirmDeleteModal({
 export default function ManagePostsPage() {
   const [content, setContent] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -62,6 +63,15 @@ export default function ManagePostsPage() {
   }, []);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  useEffect(() => {
+    const previewUrls = imageFiles.map((file) => URL.createObjectURL(file));
+    setImagePreviewUrls(previewUrls);
+
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [imageFiles]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files)
@@ -279,7 +289,7 @@ export default function ManagePostsPage() {
                     <div className="mt-3 grid grid-cols-3 gap-2">
                       {imageFiles.map((file, index) => (
                         <div key={index} className="relative group h-20 overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
-                          <img src={URL.createObjectURL(file)} alt="preview" className="h-full w-full object-cover" />
+                          <img src={imagePreviewUrls[index]} alt="preview" className="h-full w-full object-cover" />
                           <button
                             type="button"
                             onClick={() => handleRemoveImage(index)}
