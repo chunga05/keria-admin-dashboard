@@ -161,7 +161,8 @@ export default function UserDropdown() {
               document.cookie = 'dkvn_at=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
               document.cookie = 'dkvn_admin_at=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
             }
-            const userUrl = process.env.NEXT_PUBLIC_USER_URL || 'http://localhost:3000';
+            const rawUserUrl = (process.env.NEXT_PUBLIC_USER_URL || 'http://localhost:3000').trim().replace(/^(https?):+:?\/*/, '$1://');
+            const userUrl = rawUserUrl.replace(/\/$/, '');
             window.location.href = `${userUrl}/login`;
           }}
           className="flex w-full items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 text-left"
