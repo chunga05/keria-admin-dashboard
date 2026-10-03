@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { getPosts, uploadMediaFile, createPost, deletePost, Post } from "@/hooks/postService";
+import { TableFilter } from "@/components/ui/table/TableFilter";
 
 function ConfirmDeleteModal({
   open,
@@ -51,16 +52,17 @@ export default function ManagePostsPage() {
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [fetching, setFetching] = useState(true);
+  const [filters, setFilters] = useState<{ search?: string; startDate?: string; endDate?: string }>({});
 
   // Delete confirm modal
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const fetchPosts = useCallback(async () => {
     setFetching(true);
-    const { data } = await getPosts();
+    const { data } = await getPosts(1, 20, filters);
     if (data) setPosts(data);
     setFetching(false);
-  }, []);
+  }, [filters]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
@@ -160,6 +162,8 @@ export default function ManagePostsPage() {
                 Làm mới
               </button>
             </div>
+
+            <TableFilter onFilterChange={setFilters} placeholder="Tìm nội dung..." />
 
             {fetching ? (
               <div className="space-y-4">

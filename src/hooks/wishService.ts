@@ -99,7 +99,8 @@ export async function deleteBannedWord(id: number) {
 export async function getWishes(
   page: number,
   itemsPerPage: number,
-  filter: "all" | "visible" | "hidden"
+  filter: "all" | "visible" | "hidden",
+  filters: { search?: string; startDate?: string; endDate?: string } = {}
 ) {
   const start = (page - 1) * itemsPerPage;
   const end = start + itemsPerPage - 1;
@@ -113,6 +114,16 @@ export async function getWishes(
 
   if (filter === "visible") query = query.eq("is_hidden", false);
   if (filter === "hidden") query = query.eq("is_hidden", true);
+
+  if (filters.search?.trim()) {
+    query = query.or(`content.ilike.%${filters.search.trim()}%,guest_name.ilike.%${filters.search.trim()}%`);
+  }
+  if (filters.startDate) {
+    query = query.gte('created_at', filters.startDate);
+  }
+  if (filters.endDate) {
+    query = query.lte('created_at', filters.endDate + 'T23:59:59');
+  }
 
   const { data, count, error } = await query;
   if (error) throw error;

@@ -23,11 +23,26 @@ export type ContentInput = {
 };
 
 // Lấy danh sách content cho admin
-export async function getAdminContents(): Promise<ContentRecord[]> {
-  const { data, error } = await supabase
+export async function getAdminContents(filters: { search?: string; startDate?: string; endDate?: string; category?: string } = {}): Promise<ContentRecord[]> {
+  let query = supabase
     .from("content")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (filters.search?.trim()) {
+    query = query.ilike('title', `%${filters.search.trim()}%`);
+  }
+  if (filters.category) {
+    query = query.eq('category', filters.category);
+  }
+  if (filters.startDate) {
+    query = query.gte('created_at', filters.startDate);
+  }
+  if (filters.endDate) {
+    query = query.lte('created_at', filters.endDate + 'T23:59:59');
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("getAdminContents:", error);

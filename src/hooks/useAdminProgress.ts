@@ -35,12 +35,25 @@ export function useAdmin() {
   // ==========================================
   // THAO TÁC VỚI PROJECTS
   // ==========================================
-  const fetchProjects = useCallback(async () => {
+  const fetchProjects = useCallback(async (filters: { search?: string; startDate?: string; endDate?: string } = {}) => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    
+    let query = supabase
       .from('projects')
       .select('*')
       .order('id', { ascending: false });
+
+    if (filters.search?.trim()) {
+      query = query.ilike('title', `%${filters.search.trim()}%`);
+    }
+    if (filters.startDate) {
+      query = query.gte('start_date', filters.startDate);
+    }
+    if (filters.endDate) {
+      query = query.lte('start_date', filters.endDate + 'T23:59:59');
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Lỗi tải dự án:', error.message);

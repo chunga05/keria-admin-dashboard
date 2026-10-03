@@ -33,6 +33,7 @@ import {
   ContentInput,
 } from "@/app/(admin)/actions/adminActions";
 import { uploadFileToR2 } from "@/lib/uploadR2Client";
+import { TableFilter } from "@/components/ui/table/TableFilter";
 
 const CATEGORIES = [
   { value: "led", label: "LED" },
@@ -61,6 +62,7 @@ export default function AdminContentPage() {
   const [contents, setContents] = useState<ContentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [filters, setFilters] = useState<{ search?: string; startDate?: string; endDate?: string }>({});
 
   // Modal thêm/sửa
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,7 +100,7 @@ export default function AdminContentPage() {
   const fetchContents = async () => {
     setIsLoading(true);
     try {
-      const data = await getAdminContents();
+      const data = await getAdminContents(filters);
       setContents(data);
     } catch (error) {
       console.error(error);
@@ -110,7 +112,7 @@ export default function AdminContentPage() {
 
   useEffect(() => {
     fetchContents();
-  }, []);
+  }, [filters]);
 
   // ==========================================================
   // UPLOAD TỆP LÊN CLOUDFLARE R2 (qua API Route server-side)
@@ -360,6 +362,8 @@ export default function AdminContentPage() {
             Thêm Mới
           </button>
         </div>
+
+        <TableFilter onFilterChange={setFilters} placeholder="Tìm bài viết..." categories={CATEGORIES} />
 
         {/* TABLE */}
         <div className="overflow-x-auto rounded-lg border border-gray-200">

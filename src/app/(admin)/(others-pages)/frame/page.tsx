@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useAdminFrames } from "@/hooks/useAdminFrames";
 import { supabase } from "@/lib/supabaseClient";
 import { deleteFrameAction } from "@/app/(admin)/actions/adminActions";
+import { TableFilter } from "@/components/ui/table/TableFilter";
 
 export default function AdminFramesPage() {
   const { addFrame, isUploading } = useAdminFrames();
@@ -16,18 +17,31 @@ export default function AdminFramesPage() {
   const [frames, setFrames] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<{ search?: string; startDate?: string; endDate?: string }>({});
 
   const fetchFrames = async () => {
     setIsLoading(true);
-    const { data } = await supabase
+    let query = supabase
       .from("avatar_frames")
       .select("*")
       .order("created_at", { ascending: false });
+
+    if (filters.search?.trim()) {
+      query = query.ilike('name', `%${filters.search.trim()}%`);
+    }
+    if (filters.startDate) {
+      query = query.gte('created_at', filters.startDate);
+    }
+    if (filters.endDate) {
+      query = query.lte('created_at', filters.endDate + 'T23:59:59');
+    }
+
+    const { data } = await query;
     setFrames(data || []);
     setIsLoading(false);
   };
 
-  useEffect(() => { fetchFrames(); }, []);
+  useEffect(() => { fetchFrames(); }, [filters]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +154,8 @@ export default function AdminFramesPage() {
               Làm mới
             </button>
           </div>
+
+          <TableFilter onFilterChange={setFilters} placeholder="Tìm tên khung..." />
 
           {isLoading ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">

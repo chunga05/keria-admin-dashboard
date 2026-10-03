@@ -25,7 +25,7 @@ export interface AdminUser {
   created_at: string;
 }
 
-export function useUsers(status: UserStatus, searchQuery: string = "") {
+export function useUsers(status: UserStatus, filters: { search?: string; startDate?: string; endDate?: string } = {}) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,17 +43,25 @@ export function useUsers(status: UserStatus, searchQuery: string = "") {
       .eq("status", status)
       .order("created_at", { ascending: false });
 
-    if (searchQuery.trim()) {
+    if (filters.search?.trim()) {
       query = query.or(
-        `username.ilike.%${searchQuery.trim()}%,display_name.ilike.%${searchQuery.trim()}%`
+        `username.ilike.%${filters.search.trim()}%,display_name.ilike.%${filters.search.trim()}%`
       );
+    }
+    
+    if (filters.startDate) {
+      query = query.gte('created_at', filters.startDate);
+    }
+    
+    if (filters.endDate) {
+      query = query.lte('created_at', filters.endDate + 'T23:59:59');
     }
 
     const { data, error } = await query;
     if (error) setError(error.message);
     else setUsers((data as AdminUser[]) || []);
     setLoading(false);
-  }, [status, searchQuery]);
+  }, [status, filters.search, filters.startDate, filters.endDate]);
 
   useEffect(() => {
     fetchUsers();

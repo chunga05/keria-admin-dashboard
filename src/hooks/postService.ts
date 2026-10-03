@@ -12,16 +12,29 @@ export interface Post {
 // Hàm lấy danh sách bài viết — có phân trang, chỉ lấy cột cần thiết
 export async function getPosts(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  filters: { search?: string; startDate?: string; endDate?: string } = {}
 ): Promise<{ data: Post[] | null; error: any; totalCount: number | null }> {
   const from = (page - 1) * pageSize;
-  const { data, error, count } = await supabase
+  let query = supabase
     .from("posts")
     .select("id, content, image_urls, video_url, likes_count, created_at", {
       count: "exact",
     })
     .order("created_at", { ascending: false })
     .range(from, from + pageSize - 1);
+
+  if (filters.search?.trim()) {
+    query = query.ilike('content', `%${filters.search.trim()}%`);
+  }
+  if (filters.startDate) {
+    query = query.gte('created_at', filters.startDate);
+  }
+  if (filters.endDate) {
+    query = query.lte('created_at', filters.endDate + 'T23:59:59');
+  }
+
+  const { data, error, count } = await query;
 
   return { data, error, totalCount: count };
 }

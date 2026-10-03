@@ -12,6 +12,7 @@ import {
   toggleHideWish,
   deleteWish,
 } from "@/hooks/wishService";
+import { TableFilter } from "@/components/ui/table/TableFilter";
 
 function Reactions({
   cry,
@@ -52,6 +53,7 @@ export default function WishManagementPage() {
   const [wishes, setWishes] = useState<FanWish[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "visible" | "hidden">("all");
+  const [filters, setFilters] = useState<{ search?: string; startDate?: string; endDate?: string }>({});
 
   // Word List State
   const [bannedWords, setBannedWords] = useState<BannedWord[]>([]);
@@ -72,7 +74,8 @@ export default function WishManagementPage() {
         const { wishes: data, totalCount: count } = await getWishes(
           page,
           itemsPerPage,
-          filter
+          filter,
+          filters
         );
         setWishes(data);
         setTotalCount(count);
@@ -82,7 +85,7 @@ export default function WishManagementPage() {
         setLoading(false);
       }
     },
-    [filter]
+    [filter, filters]
   );
 
   const fetchBannedWordsData = useCallback(async () => {
@@ -96,7 +99,7 @@ export default function WishManagementPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filter]);
+  }, [filter, filters]);
 
   useEffect(() => {
     fetchBannedWordsData();
@@ -279,6 +282,8 @@ export default function WishManagementPage() {
           )}
         </div>
       </div>
+
+      <TableFilter onFilterChange={setFilters} placeholder="Tìm nội dung, tác giả..." />
 
       {/* ── Wishes Table ── */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">

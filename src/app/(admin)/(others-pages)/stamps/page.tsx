@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Check, X, Eye, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { TableFilter } from '@/components/ui/table/TableFilter';
 
 interface AdminStampRequest {
   id: number;
@@ -21,11 +22,12 @@ export default function AdminStampRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [filters, setFilters] = useState<{ search?: string; startDate?: string; endDate?: string }>({});
 
   const fetchPendingRequests = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('stamp_requests')
         .select(`
           id, 
@@ -35,7 +37,8 @@ export default function AdminStampRequestsPage() {
           status, 
           created_at,
           users (
-            display_name
+            display_name,
+            email
           ),
           project_stages (
             stage_name
@@ -43,6 +46,15 @@ export default function AdminStampRequestsPage() {
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
+
+      if (filters.startDate) {
+        query = query.gte('created_at', filters.startDate);
+      }
+      if (filters.endDate) {
+        query = query.lte('created_at', filters.endDate + 'T23:59:59');
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Lỗi fetch admin stamp requests:', error.message);
@@ -58,7 +70,7 @@ export default function AdminStampRequestsPage() {
 
   useEffect(() => {
     fetchPendingRequests();
-  }, []);
+  }, [filters]);
 
   const handleAction = async (id: number, action: 'approved' | 'rejected') => {
     setProcessingId(id);
@@ -99,6 +111,8 @@ export default function AdminStampRequestsPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Duyệt Yêu Cầu Nhận Con Dấu</h1>
+
+      <TableFilter onFilterChange={setFilters} placeholder="Tìm kiếm bị vô hiệu hóa, vui lòng lọc theo ngày" />
 
       {loading ? (
         <div className="flex justify-center py-12">

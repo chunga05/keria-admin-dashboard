@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Plus, Pencil, Trash2, X, Layers, CheckCircle, XCircle } from 'lucide-react';
 import { useAdmin, Project, ProjectStage } from '@/hooks/useAdminProgress';
+import { TableFilter } from '@/components/ui/table/TableFilter';
 
 export default function AdminProjectsManagement() {
   const {
@@ -31,11 +32,13 @@ export default function AdminProjectsManagement() {
   
   // Trạng thái loading khi đang tải ảnh lên Supabase
   const [isUploadingStamp, setIsUploadingStamp] = useState(false);
+  
+  const [filters, setFilters] = useState<{ search?: string; startDate?: string; endDate?: string }>({});
 
   // Load danh sách Project khi vào trang
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    fetchProjects(filters);
+  }, [fetchProjects, filters]);
 
   // ==============================
   // XỬ LÝ SỰ KIỆN DỰ ÁN (PROJECT)
@@ -150,6 +153,8 @@ export default function AdminProjectsManagement() {
             <Plus className="h-4 w-4" /> Thêm Dự án
           </button>
         </div>
+
+        <TableFilter onFilterChange={setFilters} placeholder="Tìm dự án..." />
 
         {/* BẢNG PROJECTS */}
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

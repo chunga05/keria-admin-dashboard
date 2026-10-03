@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useUsers } from "@/hooks/useUsers";
 import type { UserStatus } from "@/hooks/useUsers";
+import { TableFilter } from "@/components/ui/table/TableFilter";
 
 type Tab = { label: string; status: UserStatus; badge?: boolean };
 
@@ -34,22 +35,10 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function PendingUsersPage() {
   const [activeTab, setActiveTab] = useState<UserStatus>("pending");
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  useEffect(() => {
-    return () => clearTimeout(debounceTimer.current);
-  }, []);
-
-  const handleSearch = (val: string) => {
-    setSearch(val);
-    clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => setDebouncedSearch(val), 400);
-  };
+  const [filters, setFilters] = useState<{ search?: string; startDate?: string; endDate?: string }>({});
 
   const { users, loading, error, refresh, approveUser, rejectUser, banUser, reactivateUser } =
-    useUsers(activeTab, debouncedSearch);
+    useUsers(activeTab, filters);
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -60,6 +49,8 @@ export default function PendingUsersPage() {
           Duyệt, từ chối và quản lý thành viên fanbase
         </p>
       </div>
+
+      <TableFilter onFilterChange={setFilters} placeholder="Tìm username, tên..." />
 
       {/* Tabs + Search */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
@@ -81,20 +72,7 @@ export default function PendingUsersPage() {
             ))}
           </div>
 
-          {/* Search + Refresh */}
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Tìm username, tên..."
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="h-9 w-48 rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
-              />
-            </div>
             <button
               onClick={refresh}
               className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
