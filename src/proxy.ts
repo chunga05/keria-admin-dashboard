@@ -99,7 +99,24 @@ export async function proxy(request: NextRequest) {
   // URL của trang Login chung (ở user web)
   const userBaseUrl = process.env.NEXT_PUBLIC_USER_URL || 'http://localhost:3000';
   const loginUrl = new URL('/login', userBaseUrl);
-  loginUrl.searchParams.set('next', request.url);
+
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+  const host = forwardedHost || request.headers.get('host');
+  const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL;
+
+  let currentUrl = request.url;
+  if (currentUrl.includes('0.0.0.0')) {
+    if (adminBaseUrl && !adminBaseUrl.includes('0.0.0.0')) {
+      const parsed = new URL(request.url);
+      currentUrl = `${adminBaseUrl.replace(/\/$/, '')}${parsed.pathname}${parsed.search}`;
+    } else if (host && !host.includes('0.0.0.0')) {
+      const parsed = new URL(request.url);
+      currentUrl = `${forwardedProto}://${host}${parsed.pathname}${parsed.search}`;
+    }
+  }
+
+  loginUrl.searchParams.set('next', currentUrl);
 
   // Lấy Access Token từ cookie (ưu tiên dkvn_at, fallback dkvn_admin_at) hoặc Authorization header
   let token =

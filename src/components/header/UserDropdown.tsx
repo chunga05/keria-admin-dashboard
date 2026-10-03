@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { tokenStore } from "@/lib/tokenStore";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -154,6 +155,11 @@ export default function UserDropdown() {
               await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
             } catch (err) {
               console.error('Logout error:', err);
+            }
+            tokenStore.clear();
+            if (typeof document !== 'undefined') {
+              document.cookie = 'dkvn_at=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+              document.cookie = 'dkvn_admin_at=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
             }
             const userUrl = process.env.NEXT_PUBLIC_USER_URL || 'http://localhost:3000';
             window.location.href = `${userUrl}/login`;

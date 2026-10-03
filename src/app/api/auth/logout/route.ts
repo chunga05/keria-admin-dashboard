@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
     request.cookies.get(RT_COOKIE)?.value ||
     request.cookies.get(RT_COOKIE_FALLBACK)?.value;
 
+  const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+
   if (refreshValue) {
     try {
       const tokenHash = await sha256(refreshValue);
@@ -24,9 +26,11 @@ export async function POST(request: NextRequest) {
       if (record?.family_id) {
         await supabaseAdmin
           .from('refresh_token_families')
-          .update({ revoked_at: new Date().toISOString() })
-          .eq('family_id', record.family_id)
-          .is('revoked_at', null);
+          .update({
+            revoked_at: new Date().toISOString(),
+            grace_until: new Date(0).toISOString(),
+          })
+          .eq('family_id', record.family_id);
       }
     } catch (err) {
       console.error('[admin logout] Error revoking:', err);
@@ -34,9 +38,32 @@ export async function POST(request: NextRequest) {
   }
 
   const res = NextResponse.json({ success: true });
-  res.cookies.delete(AT_COOKIE);
-  res.cookies.delete(AT_COOKIE_FALLBACK);
-  res.cookies.delete(RT_COOKIE);
-  res.cookies.delete(RT_COOKIE_FALLBACK);
+  const cookiesToClear = [AT_COOKIE, AT_COOKIE_FALLBACK, RT_COOKIE, RT_COOKIE_FALLBACK];
+
+  cookiesToClear.forEach((name) => {
+    res.cookies.set(name, '', {
+      path: '/',
+      maxAge: 0,
+      expires: new Date(0),
+      httpOnly: name.includes('rt'),
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    res.cookies.delete(name);
+
+    if (cookieDomain) {
+      res.cookies.set(name, '', {
+        path: '/',
+        domain: cookieDomain,
+        maxAge: 0,
+        expires: new Date(0),
+        httpOnly: name.includes('rt'),
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+      res.cookies.delete({ name, domain: cookieDomain, path: '/' });
+    }
+  });
+
   return res;
 }
