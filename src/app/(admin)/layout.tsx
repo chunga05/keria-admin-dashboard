@@ -29,7 +29,8 @@ export default function AdminLayout({
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   useEffect(() => {
-    const userUrl = process.env.NEXT_PUBLIC_USER_URL || "http://localhost:3000";
+    const rawUserUrl = (process.env.NEXT_PUBLIC_USER_URL || "http://localhost:3000").trim().replace(/^(https?):+:?\/*/, '$1://');
+    const userUrl = rawUserUrl.replace(/\/$/, "");
     const loginTarget = `${userUrl}/login?next=${encodeURIComponent(window.location.href)}`;
 
     const token = getCookie("dkvn_at") || getCookie("dkvn_admin_at");

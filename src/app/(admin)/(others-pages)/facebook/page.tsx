@@ -2,7 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { supabase } from "@/lib/supabaseClient";
+import {
+  getFacebookLinksAction,
+  createFacebookLinkAction,
+  updateFacebookLinkThumbnailAction,
+  deleteFacebookLinkAction,
+} from "@/app/(admin)/actions/adminActions";
 
 type FacebookLink = {
   id: string;
@@ -31,16 +36,15 @@ function FacebookLinkCard({
   const handleSaveThumb = async () => {
     setSaving(true);
     setSaveMsg(null);
-    const { error } = await supabase
-      .from("facebook_links")
-      .update({ thumbnail_url: thumbInput.trim() || null })
-      .eq("id", link.id)
-      .select();
+    const { success, message } = await updateFacebookLinkThumbnailAction(
+      link.id,
+      thumbInput.trim() || null
+    );
 
     setSaving(false);
 
-    if (error) {
-      setSaveMsg({ type: "error", text: `Lỗi: ${error.message}` });
+    if (!success) {
+      setSaveMsg({ type: "error", text: `Lỗi: ${message}` });
       return;
     }
 
@@ -221,10 +225,7 @@ export default function AdminFacebookPage() {
 
   const fetchLinks = useCallback(async () => {
     setFetching(true);
-    const { data } = await supabase
-      .from("facebook_links")
-      .select("id, title, url, thumbnail_url, created_at")
-      .order("created_at", { ascending: false });
+    const { data } = await getFacebookLinksAction();
     setLinks(data || []);
     setFetching(false);
   }, []);
@@ -241,16 +242,14 @@ export default function AdminFacebookPage() {
     }
 
     setSubmitting(true);
-    const { error } = await supabase.from("facebook_links").insert([
-      {
-        title: title.trim() || null,
-        url: url.trim(),
-        thumbnail_url: thumbnailUrl.trim() || null,
-      },
-    ]);
+    const { success, message } = await createFacebookLinkAction({
+      title: title.trim() || null,
+      url: url.trim(),
+      thumbnail_url: thumbnailUrl.trim() || null,
+    });
 
-    if (error) {
-      setFormMsg({ type: "error", text: `Lỗi: ${error.message}` });
+    if (!success) {
+      setFormMsg({ type: "error", text: `Lỗi: ${message}` });
     } else {
       setFormMsg({ type: "success", text: "✅ Thêm link Facebook thành công!" });
       setTitle("");
@@ -262,8 +261,8 @@ export default function AdminFacebookPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("facebook_links").delete().eq("id", id);
-    if (!error) setLinks((prev) => prev.filter((l) => l.id !== id));
+    const { success } = await deleteFacebookLinkAction(id);
+    if (success) setLinks((prev) => prev.filter((l) => l.id !== id));
   };
 
   const handleThumbnailSaved = (id: string, newUrl: string) => {

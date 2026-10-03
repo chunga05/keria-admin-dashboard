@@ -222,3 +222,43 @@ export async function deleteProjectStageAction(id: number) {
   if (error) return { success: false, message: error.message };
   return { success: true, message: "" };
 }
+
+// ── Facebook Links Management ──────────────────────────────────
+
+export async function getFacebookLinksAction() {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("facebook_links")
+    .select("id, title, url, thumbnail_url, created_at")
+    .order("created_at", { ascending: false });
+  if (error) return { success: false, message: error.message, data: null };
+  return { success: true, message: "", data };
+}
+
+export async function createFacebookLinkAction(input: {
+  title?: string | null;
+  url: string;
+  thumbnail_url?: string | null;
+}) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase.from("facebook_links").insert([input]);
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "" };
+}
+
+export async function updateFacebookLinkThumbnailAction(id: string, thumbnail_url: string | null) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from("facebook_links")
+    .update({ thumbnail_url })
+    .eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "" };
+}
+
+export async function deleteFacebookLinkAction(id: string) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase.from("facebook_links").delete().eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "" };
+}

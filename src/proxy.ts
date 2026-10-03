@@ -97,8 +97,16 @@ export async function proxy(request: NextRequest) {
   }
 
   // URL của trang Login chung (ở user web)
-  const userBaseUrl = process.env.NEXT_PUBLIC_USER_URL || 'http://localhost:3000';
-  const loginUrl = new URL('/login', userBaseUrl);
+  let rawUserBaseUrl = (process.env.NEXT_PUBLIC_USER_URL || 'http://localhost:3000').trim();
+  // Khắc phục các lỗi gõ sai scheme phổ biến (ví dụ: https:://, http:://)
+  rawUserBaseUrl = rawUserBaseUrl.replace(/^(https?):+:?\/*/, '$1://');
+
+  let loginUrl: URL;
+  try {
+    loginUrl = new URL('/login', rawUserBaseUrl);
+  } catch {
+    loginUrl = new URL('/login', 'http://localhost:3000');
+  }
 
   const forwardedHost = request.headers.get('x-forwarded-host');
   const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
