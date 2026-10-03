@@ -85,17 +85,10 @@ const AppHeader: React.FC = () => {
 
           <Link href="/" className="lg:hidden">
             <Image
-              width={154}
-              height={32}
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
-            />
-            <Image
-              width={154}
-              height={32}
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
+              width={140}
+              height={36}
+              className="h-auto max-h-9 w-auto object-contain"
+              src="/images/logo/DEARKERIAVN LOGO 1.png"
               alt="Logo"
             />
           </Link>
