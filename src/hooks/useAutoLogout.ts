@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { tokenStore } from '@/lib/tokenStore';
 
 interface UseAutoLogoutOptions {
-  timeoutInMinutes?: number; // Thời gian không thao tác (mặc định 15 phút)
-  redirectPath?: string;      // Đường dẫn sau khi đăng xuất
+  timeoutInMinutes?: number;
+  redirectPath?: string;
 }
 
 export function useAutoLogout({
@@ -18,51 +18,25 @@ export function useAutoLogout({
 
   const handleLogout = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
-      alert('Phiên làm việc đã kết thúc do bạn không hoạt động trong thời gian dài.');
-      router.replace(redirectPath);
-    } catch (error) {
-      console.error('Lỗi khi tự động đăng xuất:', error);
-      router.replace(redirectPath);
-    }
+      await tokenStore.logout(); // Revokes token family server-side
+    } catch { /* best-effort */ }
+    alert('Phiên làm việc đã kết thúc do bạn không hoạt động trong thời gian dài.');
+    router.replace(redirectPath);
   }, [redirectPath, router]);
 
   const resetTimer = useCallback(() => {
-    // Xóa bộ đếm cũ nếu có thao tác mới
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-
-    // Thiết lập đếm ngược mới
-    timerRef.current = setTimeout(() => {
-      handleLogout();
-    }, timeoutInMinutes * 60 * 1000);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(handleLogout, timeoutInMinutes * 60 * 1000);
   }, [handleLogout, timeoutInMinutes]);
 
   useEffect(() => {
-    // Danh sách các sự kiện tương tác của người dùng
-    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-
-    const handleUserActivity = () => {
-      resetTimer();
-    };
-
-    // Bắt đầu đếm ngay khi component mount
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'] as const;
+    const handler = () => resetTimer();
     resetTimer();
-
-    // Gắn listener theo dõi
-    events.forEach((event) => {
-      window.addEventListener(event, handleUserActivity);
-    });
-
+    events.forEach((e) => window.addEventListener(e, handler));
     return () => {
-      // Dọn dẹp listener và timer khi unmount
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      events.forEach((event) => {
-        window.removeEventListener(event, handleUserActivity);
-      });
+      if (timerRef.current) clearTimeout(timerRef.current);
+      events.forEach((e) => window.removeEventListener(e, handler));
     };
   }, [resetTimer]);
 }
