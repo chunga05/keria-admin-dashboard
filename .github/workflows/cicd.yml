@@ -102,10 +102,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_SUPABASE_HOSTNAME=${{ secrets.NEXT_PUBLIC_SUPABASE_HOSTNAME }}
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-            NEXT_PUBLIC_USER_URL=${{ secrets.NEXT_PUBLIC_USER_URL }}
+            NEXT_PUBLIC_SUPABASE_HOSTNAME=${{ secrets.NEXT_PUBLIC_SUPABASE_HOSTNAME || 'placeholder.supabase.co' }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
+            NEXT_PUBLIC_USER_URL=${{ secrets.NEXT_PUBLIC_USER_URL || 'http://localhost:3000' }}
 
   # -------------------------------------------------------------
   # 3. CD JOB: Deploy to VPS via SSH (Chỉ chạy trên nhánh main)

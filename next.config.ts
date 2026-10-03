@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_HOSTNAME?.trim() || '*.supabase.co';
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   /* CẤU HÌNH CHO NEXT/IMAGE */
@@ -12,7 +14,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: process.env.NEXT_PUBLIC_SUPABASE_HOSTNAME as string,
+        hostname: supabaseHostname,
       },
       {
         protocol: 'https',
