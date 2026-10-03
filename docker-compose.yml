@@ -1,0 +1,32 @@
+services:
+  admin-dashboard:
+    image: ${IMAGE_NAME:-ghcr.io/chunga05/keria-admin-dashboard:latest}
+    container_name: keria-admin-dashboard
+    restart: always
+    ports:
+      - "${PORT:-3001}:3001"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOSTNAME=0.0.0.0
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # (Tùy chọn) Cloudflare Tunnel nếu muốn trỏ domain qua Cloudflare mà không cần mở port
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: admin-cloudflared
+    restart: always
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:-}
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      - admin-dashboard
+    profiles: ["tunnel"] # Chỉ chạy khi gõ: docker compose --profile tunnel up -d

@@ -1,0 +1,172 @@
+name: CI/CD Pipeline - Admin Dashboard
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # -------------------------------------------------------------
+  # 1. CI JOB: Test, Type-Check, Lint & Build Validation
+  # -------------------------------------------------------------
+  ci:
+    name: Validate (TypeCheck, Lint, Build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript Check
+        run: pnpm exec tsc --noEmit
+
+      - name: ESLint Check
+        run: pnpm run lint --quiet
+
+      - name: Build Check
+        env:
+          NEXT_PUBLIC_SUPABASE_HOSTNAME: ${{ secrets.NEXT_PUBLIC_SUPABASE_HOSTNAME || 'mock.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://mock.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-key' }}
+          NEXT_PUBLIC_USER_URL: ${{ secrets.NEXT_PUBLIC_USER_URL || 'http://localhost:3000' }}
+        run: pnpm run build
+
+  # -------------------------------------------------------------
+  # 2. DOCKER BUILD & PUSH: Build on GitHub Runner & Push to GHCR
+  # Chỉ chạy khi push vào nhánh main hoặc kích hoạt thủ công trên main
+  # -------------------------------------------------------------
+  build-and-push:
+    name: Build & Push Docker Image
+    needs: ci
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_HOSTNAME=${{ secrets.NEXT_PUBLIC_SUPABASE_HOSTNAME }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_USER_URL=${{ secrets.NEXT_PUBLIC_USER_URL }}
+
+  # -------------------------------------------------------------
+  # 3. CD JOB: Deploy to VPS via SSH (Chỉ chạy trên nhánh main)
+  # -------------------------------------------------------------
+  deploy:
+    name: Deploy to VPS
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          TARGET_TAG: ${{ github.ref == 'refs/heads/main' && 'latest' || github.ref_name }}
+          REPO_LOWER: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          envs: TARGET_TAG,REPO_LOWER
+          script: |
+            set -e
+            APP_DIR="/opt/dkvn/admin"
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+
+            # Authenticate with GHCR if needed
+            echo "${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || true
+
+            # Export image name with normalized lowercase tag
+            IMAGE_URI="$(echo "${REPO_LOWER}:${TARGET_TAG}" | tr '[:upper:]' '[:lower:]')"
+            echo "Pulling $IMAGE_URI..."
+            docker pull "$IMAGE_URI"
+
+            # Create or update docker-compose.yml if not existing
+            cat << 'EOF' > docker-compose.yml
+            services:
+              admin-dashboard:
+                image: IMAGE_PLACEHOLDER
+                container_name: keria-admin-dashboard
+                restart: always
+                ports:
+                  - "3001:3001"
+                env_file:
+                  - .env
+                environment:
+                  - NODE_ENV=production
+                  - PORT=3001
+                  - HOSTNAME=0.0.0.0
+            EOF
+
+            sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_URI|g" docker-compose.yml
+
+            # Ensure .env exists so docker compose doesn't throw an error
+            touch .env
+
+            # Restart containers
+            docker compose down || true
+            docker compose up -d --remove-orphans
+
+            # Clean up old unused images
+            docker image prune -af --filter "until=72h"
+            echo "Admin deployment completed successfully!"
