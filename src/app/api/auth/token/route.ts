@@ -82,6 +82,8 @@ export async function POST(request: NextRequest) {
 
     const res = NextResponse.json({ access_token: accessToken });
 
+    const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+
     // Set cookie dkvn_at
     res.cookies.set(AT_COOKIE, accessToken, {
       httpOnly: false,
@@ -89,6 +91,7 @@ export async function POST(request: NextRequest) {
       sameSite: 'lax',
       maxAge: 15 * 60,
       path: '/',
+      domain: cookieDomain,
     });
     res.cookies.set(AT_COOKIE_FALLBACK, accessToken, {
       httpOnly: false,
@@ -96,6 +99,7 @@ export async function POST(request: NextRequest) {
       sameSite: 'lax',
       maxAge: 15 * 60,
       path: '/',
+      domain: cookieDomain,
     });
 
     // Set cookie dkvn_rt
@@ -105,6 +109,7 @@ export async function POST(request: NextRequest) {
       sameSite: 'lax',
       maxAge: REFRESH_TTL_SEC,
       path: '/',
+      domain: cookieDomain,
     });
     res.cookies.set(RT_COOKIE_FALLBACK, refreshValue, {
       httpOnly: true,
@@ -112,6 +117,7 @@ export async function POST(request: NextRequest) {
       sameSite: 'lax',
       maxAge: REFRESH_TTL_SEC,
       path: '/',
+      domain: cookieDomain,
     });
 
     return res;

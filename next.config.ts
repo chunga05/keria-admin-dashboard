@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   /* CẤU HÌNH CHO NEXT/IMAGE */
   images: {
     qualities: [75, 100],
