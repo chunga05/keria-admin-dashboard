@@ -132,9 +132,9 @@ jobs:
           envs: TARGET_TAG,REPO_LOWER
           script: |
             set -e
-            APP_DIR="/opt/dkvn/admin"
-            mkdir -p $APP_DIR
-            cd $APP_DIR
+            APP_DIR="$HOME/dkvn/admin"
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
 
             # Authenticate with GHCR if needed
             echo "${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || true
