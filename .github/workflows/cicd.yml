@@ -31,10 +31,10 @@ jobs:
         with:
           version: latest
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22 (LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -52,6 +52,9 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://mock.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-key' }}
           NEXT_PUBLIC_USER_URL: ${{ secrets.NEXT_PUBLIC_USER_URL || 'http://localhost:3000' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-build-service-role-key' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'dummy-build-jwt-secret-at-least-32-chars' }}
+          ADMIN_JWT_SECRET: ${{ secrets.ADMIN_JWT_SECRET || 'dummy-build-admin-jwt-secret-32-chars' }}
         run: pnpm run build
 
   # -------------------------------------------------------------

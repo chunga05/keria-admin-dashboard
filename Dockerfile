@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for Next.js (Admin Dashboard)
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 # Install libc6-compat for alpine compatibility
 FROM base AS deps
