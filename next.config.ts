@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_HOSTNAME?.trim() || '*.supabase.co';
+const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -19,6 +20,24 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: '**.r2.dev',
+      },
+      ...(r2PublicUrl
+        ? [
+            {
+              protocol: 'https' as const,
+              hostname: (() => {
+                try {
+                  return new URL(r2PublicUrl).hostname;
+                } catch {
+                  return r2PublicUrl;
+                }
+              })(),
+            },
+          ]
+        : []),
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
       },
       // BỔ SUNG CẤU HÌNH HOSTNAME YOUTUBE VÀO ĐÂY
       {

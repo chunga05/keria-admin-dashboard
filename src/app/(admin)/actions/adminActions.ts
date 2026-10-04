@@ -1,18 +1,18 @@
-"use server";
+﻿"use server";
 
 import { cookies } from "next/headers";
 import { verifyAccessToken } from "@/lib/jwt";
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
-// ─────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Admin Client:
-// Vì Admin app sử dụng custom JWT (dkvn_at) với role='admin', 
-// @supabase/ssr không thể dùng custom JWT này trực tiếp cho RLS 
-// (do pg_roles không có role 'admin' và thiếu session chuẩn).
-// Do đó, ta verify custom JWT trước, sau đó dùng supabaseAdmin 
-// (service_role) để thực hiện thao tác. RLS policy ở database 
-// vẫn bảo vệ an toàn trước các request trực tiếp từ client/app chính.
-// ─────────────────────────────────────────────────────────────
+// VÃ¬ Admin app sá»­ dá»¥ng custom JWT (dkvn_at) vá»›i role='admin', 
+// @supabase/ssr khÃ´ng thá»ƒ dÃ¹ng custom JWT nÃ y trá»±c tiáº¿p cho RLS 
+// (do pg_roles khÃ´ng cÃ³ role 'admin' vÃ  thiáº¿u session chuáº©n).
+// Do Ä‘Ã³, ta verify custom JWT trÆ°á»›c, sau Ä‘Ã³ dÃ¹ng supabaseAdmin 
+// (service_role) Ä‘á»ƒ thá»±c hiá»‡n thao tÃ¡c. RLS policy á»Ÿ database 
+// váº«n báº£o vá»‡ an toÃ n trÆ°á»›c cÃ¡c request trá»±c tiáº¿p tá»« client/app chÃ­nh.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function createAdminClient() {
   const cookieStore = await cookies();
   const token = cookieStore.get("dkvn_at")?.value || cookieStore.get("dkvn_admin_at")?.value;
@@ -22,7 +22,7 @@ async function createAdminClient() {
   }
 
   const payload = await verifyAccessToken(token);
-  if (!payload || payload.role !== "admin" || payload.status !== "approved") {
+  if (!payload || (payload.role !== "admin" && payload.app_role !== "admin") || payload.status !== "approved") {
     throw new Error("Forbidden: Invalid admin token or insufficient permissions");
   }
 
@@ -30,7 +30,8 @@ async function createAdminClient() {
 }
 
 export async function getAdminProfileByUserId(userId: string) {
-  const { data } = await supabaseAdmin
+  const supabase = await createAdminClient();
+  const { data } = await supabase
     .from("users")
     .select("*")
     .eq("id", userId)
@@ -39,7 +40,7 @@ export async function getAdminProfileByUserId(userId: string) {
   return data;
 }
 
-// ─── User Management ──────────────────────────────────────────────────────────
+// â”€â”€â”€ User Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function approveUserAction(userId: string) {
   const supabase = await createAdminClient();
@@ -85,7 +86,7 @@ export async function reactivateUserAction(userId: string) {
   return { success: true };
 }
 
-// ─── Post Management ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Post Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function deletePostAction(postId: string) {
   const supabase = await createAdminClient();
@@ -98,7 +99,7 @@ export async function deletePostAction(postId: string) {
   return { success: true };
 }
 
-// ─── Frame Management ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Frame Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function deleteFrameAction(frameId: string) {
   const supabase = await createAdminClient();
@@ -111,7 +112,7 @@ export async function deleteFrameAction(frameId: string) {
   return { success: true };
 }
 
-// ─── Content Management ───────────────────────────────────────────────────────
+// â”€â”€â”€ Content Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type ContentInput = {
   title: string;
@@ -167,7 +168,7 @@ export async function updateContentAction(id: string, input: ContentInput) {
 export async function deleteContentAction(id: string) {
   const supabase = await createAdminClient();
 
-  // Lấy media_url trước khi xóa (để xóa file trên R2 nếu cần)
+  // Láº¥y media_url trÆ°á»›c khi xÃ³a (Ä‘á»ƒ xÃ³a file trÃªn R2 náº¿u cáº§n)
   const { data: record } = await supabase
     .from("content")
     .select("media_url")
@@ -180,7 +181,7 @@ export async function deleteContentAction(id: string) {
   return { success: true, message: "", mediaUrl: record?.media_url ?? null };
 }
 
-// ─── Project Management ───────────────────────────────────────────────────────
+// â”€â”€â”€ Project Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function createProjectAction(input: any) {
   const supabase = await createAdminClient();
@@ -203,7 +204,7 @@ export async function deleteProjectAction(id: number) {
   return { success: true, message: "" };
 }
 
-// ─── Project Stage Management ─────────────────────────────────────────────────
+// â”€â”€â”€ Project Stage Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function createProjectStageAction(input: any) {
   const supabase = await createAdminClient();
@@ -226,7 +227,7 @@ export async function deleteProjectStageAction(id: number) {
   return { success: true, message: "" };
 }
 
-// ── Facebook Links Management ──────────────────────────────────
+// â”€â”€ Facebook Links Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getFacebookLinksAction() {
   const supabase = await createAdminClient();
@@ -265,3 +266,8 @@ export async function deleteFacebookLinkAction(id: string) {
   if (error) return { success: false, message: error.message };
   return { success: true, message: "" };
 }
+
+
+
+
+
