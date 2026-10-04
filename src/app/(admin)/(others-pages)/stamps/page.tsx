@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Check, X, Eye, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { TableFilter } from '@/components/ui/table/TableFilter';
 
 interface AdminStampRequest {

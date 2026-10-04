@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useAdminFrames } from "@/hooks/useAdminFrames";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { deleteFrameAction } from "@/app/(admin)/actions/adminActions";
 import { TableFilter } from "@/components/ui/table/TableFilter";
 

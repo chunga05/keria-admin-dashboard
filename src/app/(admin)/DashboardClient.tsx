@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAdminStats } from "@/hooks/useAdminStats";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 
 // ─── Stats Card ───────────────────────────────────────────────────────────────
 function StatsCard({
