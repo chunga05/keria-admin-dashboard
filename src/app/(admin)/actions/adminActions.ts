@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { verifyAccessToken } from "@/lib/jwt";
-import { supabaseAdmin } from "@/lib/supabaseClient";
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 // ─────────────────────────────────────────────────────────────
 // Admin Client:

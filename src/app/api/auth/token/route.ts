@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { signAccessToken, verifyAccessToken, sha256 } from '@/lib/jwt';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 const AT_COOKIE = 'dkvn_at';
 const AT_COOKIE_FALLBACK = 'dkvn_admin_at';
@@ -120,3 +120,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 }
+
