@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { supabaseAdmin as supabase } from '../lib/supabaseAdmin';
 import { uploadFileToR2 } from '../lib/uploadR2Client';
+import { createFrameAction } from '@/app/(admin)/actions/adminActions';
 
 export const useAdminFrames = () => {
   const [isUploading, setIsUploading] = useState(false);
@@ -17,12 +17,9 @@ export const useAdminFrames = () => {
       //    folder "frames" trong R2 bucket
       const imageUrl = await uploadFileToR2(file, 'frames');
 
-      // 2. LƯU THÔNG TIN VÀO BẢNG avatar_frames TRONG DATABASE
-      const { error: dbError } = await supabase
-        .from('avatar_frames')
-        .insert([{ id: id, name: name, image_url: imageUrl }]);
-
-      if (dbError) throw dbError;
+      // 2. LƯU THÔNG TIN VÀO BẢNG avatar_frames QUA SERVER ACTION
+      const res = await createFrameAction({ id, name, image_url: imageUrl });
+      if (!res.success) throw new Error(res.message);
 
       alert("Thêm khung viền mới thành công rực rỡ! 🎉");
 

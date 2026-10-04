@@ -87,6 +87,22 @@ export async function reactivateUserAction(userId: string) {
 
 // ─── Post Management ──────────────────────────────────────────────────────────
 
+export async function createPostAction(postData: {
+  content: string;
+  image_urls: string[];
+  video_url: string | null;
+}) {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("posts")
+    .insert([postData])
+    .select()
+    .single();
+
+  if (error) return { success: false, message: error.message, data: null };
+  return { success: true, message: "", data };
+}
+
 export async function deletePostAction(postId: string) {
   const supabase = await createAdminClient();
   const { error } = await supabase
@@ -99,6 +115,22 @@ export async function deletePostAction(postId: string) {
 }
 
 // ─── Frame Management ─────────────────────────────────────────────────────────
+
+export async function createFrameAction(input: {
+  id: string;
+  name: string;
+  image_url: string;
+}) {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("avatar_frames")
+    .insert([input])
+    .select()
+    .single();
+
+  if (error) return { success: false, message: error.message, data: null };
+  return { success: true, message: "", data };
+}
 
 export async function deleteFrameAction(frameId: string) {
   const supabase = await createAdminClient();
@@ -265,3 +297,92 @@ export async function deleteFacebookLinkAction(id: string) {
   if (error) return { success: false, message: error.message };
   return { success: true, message: "" };
 }
+
+// ─── Banned Words & Wishes Management ─────────────────────────────────────────
+
+export async function addBannedWordAction(word: string) {
+  const supabase = await createAdminClient();
+  const cleanWord = word.trim().toLowerCase();
+  const { data, error } = await supabase
+    .from("banned_words")
+    .insert([{ word: cleanWord }])
+    .select()
+    .single();
+
+  if (error) return { success: false, message: error.message, data: null };
+  return { success: true, message: "", data };
+}
+
+export async function bulkInsertBannedWordsAction(words: string[]) {
+  const supabase = await createAdminClient();
+  const cleanWords = Array.from(
+    new Set(words.map((w) => w.trim().toLowerCase()))
+  ).filter((w) => w.length > 0);
+
+  if (cleanWords.length === 0) {
+    return { success: true, insertedCount: 0, skippedCount: 0, message: "" };
+  }
+
+  const { data: existingData, error: fetchError } = await supabase
+    .from("banned_words")
+    .select("word");
+
+  if (fetchError) {
+    return { success: false, message: fetchError.message, insertedCount: 0, skippedCount: 0 };
+  }
+
+  const existingWordsSet = new Set(
+    (existingData || []).map((item: any) => item.word.toLowerCase())
+  );
+
+  const newWords = cleanWords.filter((word) => !existingWordsSet.has(word));
+  const skippedCount = cleanWords.length - newWords.length;
+
+  if (newWords.length === 0) {
+    return { success: true, insertedCount: 0, skippedCount, message: "" };
+  }
+
+  const payload = newWords.map((word) => ({ word }));
+  const { data, error: insertError } = await supabase
+    .from("banned_words")
+    .insert(payload)
+    .select();
+
+  if (insertError) {
+    return { success: false, message: insertError.message, insertedCount: 0, skippedCount };
+  }
+
+  return {
+    success: true,
+    message: "",
+    insertedCount: newWords.length,
+    skippedCount,
+    data,
+  };
+}
+
+export async function deleteBannedWordAction(id: number) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase.from("banned_words").delete().eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "" };
+}
+
+export async function toggleHideWishAction(id: number, currentStatus: boolean) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from("fan_wishes")
+    .update({ is_hidden: !currentStatus })
+    .eq("id", id);
+
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "" };
+}
+
+export async function deleteWishAction(id: number) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase.from("fan_wishes").delete().eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "" };
+}
+

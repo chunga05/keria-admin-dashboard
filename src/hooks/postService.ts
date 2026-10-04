@@ -1,4 +1,5 @@
 import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
+import { createPostAction, deletePostAction } from "@/app/(admin)/actions/adminActions";
 
 export interface Post {
   id: string;
@@ -58,20 +59,18 @@ export async function uploadMediaFile(file: File, folder: "images" | "videos"): 
   return publicUrlData.publicUrl;
 }
 
-// Hàm tạo bài viết mới
+// Hàm tạo bài viết mới (chạy qua Server Action để có đặc quyền service_role và bypass RLS)
 export async function createPost(postData: {
   content: string;
   image_urls: string[];
   video_url: string | null;
 }) {
-  const { error } = await supabase.from("posts").insert([postData]);
-  if (error) throw error;
+  const res = await createPostAction(postData);
+  if (!res.success) throw new Error(res.message);
   return true;
 }
 
-// Hàm xoá bài viết
+// Hàm xoá bài viết (chạy qua Server Action)
 export async function deletePost(postId: string): Promise<{ success: boolean; message?: string }> {
-  const { error } = await supabase.from("posts").delete().eq("id", postId);
-  if (error) return { success: false, message: error.message };
-  return { success: true };
+  return await deletePostAction(postId);
 }

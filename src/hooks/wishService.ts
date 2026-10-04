@@ -1,4 +1,11 @@
 import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
+import {
+  addBannedWordAction,
+  bulkInsertBannedWordsAction,
+  deleteBannedWordAction,
+  toggleHideWishAction,
+  deleteWishAction,
+} from "@/app/(admin)/actions/adminActions";
 
 export interface WishUser {
   display_name: string;
@@ -37,62 +44,23 @@ export async function getBannedWords(): Promise<BannedWord[]> {
 }
 
 export async function addBannedWord(word: string) {
-  const cleanWord = word.trim().toLowerCase();
-  const { data, error } = await supabase
-    .from("banned_words")
-    .insert([{ word: cleanWord }]);
-
-  if (error) throw error;
-  return data;
+  const res = await addBannedWordAction(word);
+  if (!res.success) throw new Error(res.message);
+  return res.data;
 }
 
 export async function bulkInsertBannedWords(words: string[]) {
-  // 1. Chuẩn hóa & loại bỏ các từ bị trùng lặp ngay trong file vừa tải lên
-  const cleanWords = Array.from(
-    new Set(words.map((w) => w.trim().toLowerCase()))
-  ).filter((w) => w.length > 0);
-
-  if (cleanWords.length === 0) {
-    return { insertedCount: 0, skippedCount: 0 };
-  }
-
-  // 2. Lấy danh sách các từ đã tồn tại sẵn trong database
-  const { data: existingData, error: fetchError } = await supabase
-    .from("banned_words")
-    .select("word");
-
-  if (fetchError) throw fetchError;
-
-  const existingWordsSet = new Set(
-    (existingData || []).map((item) => item.word.toLowerCase())
-  );
-
-  // 3. Tự động bỏ qua các từ đã tồn tại, chỉ giữ lại từ mới
-  const newWords = cleanWords.filter((word) => !existingWordsSet.has(word));
-  const skippedCount = cleanWords.length - newWords.length;
-
-  // Nếu không có từ mới nào cần thêm
-  if (newWords.length === 0) {
-    return { insertedCount: 0, skippedCount };
-  }
-
-  // 4. Chỉ chèn những từ chưa từng có trong DB
-  const payload = newWords.map((word) => ({ word }));
-  const { data, error: insertError } = await supabase
-    .from("banned_words")
-    .insert(payload);
-
-  if (insertError) throw insertError;
-
+  const res = await bulkInsertBannedWordsAction(words);
+  if (!res.success) throw new Error(res.message);
   return {
-    insertedCount: newWords.length,
-    skippedCount,
+    insertedCount: res.insertedCount,
+    skippedCount: res.skippedCount,
   };
 }
 
 export async function deleteBannedWord(id: number) {
-  const { error } = await supabase.from("banned_words").delete().eq("id", id);
-  if (error) throw error;
+  const res = await deleteBannedWordAction(id);
+  if (!res.success) throw new Error(res.message);
 }
 
 // ── Wishes API ─────────────────────────────────────────────────────────────
@@ -135,15 +103,11 @@ export async function getWishes(
 }
 
 export async function toggleHideWish(id: number, currentStatus: boolean) {
-  const { error } = await supabase
-    .from("fan_wishes")
-    .update({ is_hidden: !currentStatus })
-    .eq("id", id);
-
-  if (error) throw error;
+  const res = await toggleHideWishAction(id, currentStatus);
+  if (!res.success) throw new Error(res.message);
 }
 
 export async function deleteWish(id: number) {
-  const { error } = await supabase.from("fan_wishes").delete().eq("id", id);
-  if (error) throw error;
+  const res = await deleteWishAction(id);
+  if (!res.success) throw new Error(res.message);
 }
