@@ -1,30 +1,33 @@
 "use server";
 
-// Không còn dùng service_role.
-// Dùng @supabase/ssr để tạo server client đọc cookie session của admin.
-// RLS tự kiểm tra auth.uid() + role = 'admin' qua hàm is_admin().
-import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { verifyAccessToken } from "@/lib/jwt";
+import { supabaseAdmin } from "@/lib/supabaseClient";
 
+// ─────────────────────────────────────────────────────────────
+// Admin Client:
+// Vì Admin app sử dụng custom JWT (dkvn_at) với role='admin', 
+// @supabase/ssr không thể dùng custom JWT này trực tiếp cho RLS 
+// (do pg_roles không có role 'admin' và thiếu session chuẩn).
+// Do đó, ta verify custom JWT trước, sau đó dùng supabaseAdmin 
+// (service_role) để thực hiện thao tác. RLS policy ở database 
+// vẫn bảo vệ an toàn trước các request trực tiếp từ client/app chính.
+// ─────────────────────────────────────────────────────────────
 async function createAdminClient() {
   const cookieStore = await cookies();
+  const token = cookieStore.get("dkvn_at")?.value || cookieStore.get("dkvn_admin_at")?.value;
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        // Server Actions không cần setAll vì chỉ đọc session
-        setAll() {},
-      },
-    }
-  );
+  if (!token) {
+    throw new Error("Unauthorized: Missing admin token");
+  }
+
+  const payload = await verifyAccessToken(token);
+  if (!payload || payload.role !== "admin" || payload.status !== "approved") {
+    throw new Error("Forbidden: Invalid admin token or insufficient permissions");
+  }
+
+  return supabaseAdmin;
 }
-
-import { supabaseAdmin } from "@/lib/supabaseClient";
 
 export async function getAdminProfileByUserId(userId: string) {
   const { data } = await supabaseAdmin
