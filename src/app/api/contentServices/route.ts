@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient"; // Import client supabase đã cấu hình của bạn
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 
 export async function GET() {
   try {

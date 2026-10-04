@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { deleteR2FileByUrl } from '@/lib/r2';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function PATCH(
   request: Request,
