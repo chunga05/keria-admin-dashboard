@@ -1,7 +1,7 @@
 // File: src/hooks/useAdminStats.ts
 // ─── Tối ưu: 5 requests → 1 RPC call ─────────────────────────────────────────
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 
 export interface AdminStats {
   approvedUsers: number;

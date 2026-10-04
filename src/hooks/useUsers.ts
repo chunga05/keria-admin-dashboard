@@ -1,6 +1,6 @@
 // File: src/hooks/useUsers.ts
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { useConfirm } from "@/context/ConfirmContext";
 import {
   approveUserAction,
