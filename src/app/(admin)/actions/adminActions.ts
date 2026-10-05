@@ -453,3 +453,34 @@ export async function deleteWishAction(id: number) {
   }
   return { success: true };
 }
+export async function createPostAction(postData: {
+  content: string;
+  image_urls: string[];
+  video_url: string | null;
+}) {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from('posts')
+    .insert([postData])
+    .select()
+    .single();
+
+  if (error) return { success: false, message: error.message, data: null };
+  return { success: true, message: '', data };
+}
+
+export async function createFrameAction(input: {
+  id: string;
+  name: string;
+  image_url: string;
+}) {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from('avatar_frames')
+    .insert([input])
+    .select()
+    .single();
+
+  if (error) return { success: false, message: error.message, data: null };
+  return { success: true, message: '', data };
+}
