@@ -126,9 +126,7 @@ jobs:
           envs: TARGET_TAG,REPO_LOWER
           script: |
             set -e
-            APP_DIR="$HOME/dkvn/admin"
-            mkdir -p "$APP_DIR"
-            cd "$APP_DIR"
+            cd "$HOME/dkvn"
 
             # Authenticate with GHCR if needed
             echo "${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || true
@@ -138,31 +136,8 @@ jobs:
             echo "Pulling $IMAGE_URI..."
             docker pull "$IMAGE_URI"
 
-            # Create or update docker-compose.yml if not existing
-            cat << 'EOF' > docker-compose.yml
-            services:
-              admin-dashboard:
-                image: IMAGE_PLACEHOLDER
-                container_name: keria-admin-dashboard
-                restart: always
-                ports:
-                  - "3001:3001"
-                env_file:
-                  - .env
-                environment:
-                  - NODE_ENV=production
-                  - PORT=3001
-                  - HOSTNAME=0.0.0.0
-            EOF
-
-            sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_URI|g" docker-compose.yml
-
-            # Ensure .env exists so docker compose doesn't throw an error
-            touch .env
-
             # Restart containers
-            docker compose down || true
-            docker compose up -d --remove-orphans
+            docker compose up -d --no-deps admin-dashboard
 
             # Clean up old unused images
             docker image prune -af --filter "until=72h"
