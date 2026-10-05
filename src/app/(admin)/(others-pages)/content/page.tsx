@@ -327,7 +327,12 @@ export default function AdminContentPage() {
       // Xóa file trên Cloudflare R2 nếu là file đã upload (không xóa nếu là URL ngoài)
       if (res.mediaUrl) {
         const r2Domain = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "";
-        if (r2Domain && res.mediaUrl.startsWith(r2Domain)) {
+        const isR2File =
+          (r2Domain && res.mediaUrl.startsWith(r2Domain)) ||
+          res.mediaUrl.includes('.r2.dev') ||
+          res.mediaUrl.includes('.r2.cloudflarestorage.com');
+
+        if (isR2File) {
           // Gọi API xóa file R2 ở background (không block UI)
           fetch("/api/upload/delete", {
             method: "DELETE",

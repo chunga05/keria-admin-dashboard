@@ -11,6 +11,7 @@ const TABS: Tab[] = [
   { label: "⏳ Chờ duyệt", status: "pending", badge: true },
   { label: "✅ Đã duyệt", status: "approved" },
   { label: "❌ Từ chối", status: "rejected" },
+  { label: "🔒 Bị khoá", status: "banned" },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -218,6 +219,14 @@ export default function PendingUsersPage() {
                             className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 transition hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400"
                           >
                             Duyệt lại
+                          </button>
+                        )}
+                        {activeTab === "banned" && (
+                          <button
+                            onClick={() => reactivateUser(user.id)}
+                            className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-bold text-green-600 transition hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400"
+                          >
+                            🔓 Mở khoá
                           </button>
                         )}
                       </div>

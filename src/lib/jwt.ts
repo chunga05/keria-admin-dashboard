@@ -1,8 +1,9 @@
-import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+﻿import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 
 export interface AdminTokenPayload extends JWTPayload {
   sub: string;
   role: string;
+  app_role?: string;
   status: string;
   type: 'access';
 }
@@ -16,7 +17,7 @@ function getSecret(): Uint8Array {
 }
 
 export async function signAccessToken(
-  payload: Pick<AdminTokenPayload, 'sub' | 'role' | 'status'>
+  payload: Pick<AdminTokenPayload, 'sub' | 'role' | 'status'> & { app_role?: string }
 ): Promise<string> {
   return new SignJWT({ ...payload, type: 'access' as const })
     .setProtectedHeader({ alg: 'HS256' })
@@ -44,3 +45,4 @@ export async function sha256(value: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
+

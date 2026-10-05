@@ -1,193 +1,127 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { signAccessToken, sha256 } from '@/lib/jwt';
+import { verifyAccessToken, signAccessToken, sha256 } from '@/lib/jwt';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 const AT_COOKIE = 'dkvn_at';
-const AT_COOKIE_FALLBACK = 'dkvn_admin_at';
 const RT_COOKIE = 'dkvn_rt';
-const RT_COOKIE_FALLBACK = 'dkvn_admin_rt';
-const REFRESH_TTL_SEC = 7 * 24 * 60 * 60;
-const GRACE_PERIOD_SEC = 30;
+const REFRESH_TTL_SEC = 7 * 24 * 60 * 60; // 7 ngAy
+const GRACE_PERIOD_SEC = 30; // 30s grace period cho xoay vAng
 
-function clearAuthCookies(res: NextResponse): NextResponse {
-  res.cookies.delete(AT_COOKIE);
-  res.cookies.delete(AT_COOKIE_FALLBACK);
-  res.cookies.delete(RT_COOKIE);
-  res.cookies.delete(RT_COOKIE_FALLBACK);
-  return res;
+export async function GET(request: NextRequest) {
+  return handleRefresh(request);
 }
 
 export async function POST(request: NextRequest) {
+  return handleRefresh(request);
+}
+
+async function handleRefresh(request: NextRequest) {
   try {
-    const refreshValue =
-      request.cookies.get(RT_COOKIE)?.value ||
-      request.cookies.get(RT_COOKIE_FALLBACK)?.value;
+    let accessToken = request.cookies.get(AT_COOKIE)?.value;
+    const authHeader = request.headers.get('Authorization');
+    if (!accessToken && authHeader?.startsWith('Bearer ')) {
+      accessToken = authHeader.substring(7).trim();
+    }
+
+    const payload = accessToken ? await verifyAccessToken(accessToken).catch(() => null) : null;
+    const refreshValue = request.cookies.get(RT_COOKIE)?.value;
 
     if (!refreshValue) {
-      return NextResponse.json({ error: 'no_refresh_token' }, { status: 401 });
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
 
     const tokenHash = await sha256(refreshValue);
 
-    const { data: record, error: lookupErr } = await supabaseAdmin
+    // Kiem tra refresh token
+    const { data: record } = await supabaseAdmin
       .from('refresh_token_families')
       .select('id, user_id, family_id, token_hash, revoked_at, grace_until, expires_at')
       .eq('token_hash', tokenHash)
       .maybeSingle();
 
-    if (lookupErr || !record) {
-      return clearAuthCookies(
-        NextResponse.json({ error: 'invalid_token' }, { status: 401 })
-      );
+    if (!record || new Date(record.expires_at) < new Date()) {
+      const res = NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+      res.cookies.delete(AT_COOKIE);
+      res.cookies.delete(RT_COOKIE);
+      return res;
     }
 
-    if (new Date(record.expires_at) < new Date()) {
-      return clearAuthCookies(
-        NextResponse.json({ error: 'token_expired' }, { status: 401 })
-      );
-    }
+    let validUserId: string | null = null;
 
-    // Xử lý token đã bị revoked
     if (record.revoked_at) {
-      const withinGrace =
-        record.grace_until && new Date(record.grace_until) > new Date();
-
+      // Reuse detected!
+      const withinGrace = record.grace_until && new Date(record.grace_until) > new Date();
       if (withinGrace) {
-        // Race condition grace: cấp lại access token cho các request đồng thời
-        const { data: profile } = await supabaseAdmin
-          .from('users')
-          .select('role, status')
-          .eq('id', record.user_id)
-          .maybeSingle();
-
-        if (
-          profile &&
-          String(profile.role).trim().toLowerCase() === 'admin' &&
-          String(profile.status).trim().toLowerCase() === 'approved'
-        ) {
-          const at = await signAccessToken({
-            sub: record.user_id,
-            role: 'admin',
-            status: 'approved',
-          });
-          const gracRes = NextResponse.json({ access_token: at });
-          gracRes.cookies.set(AT_COOKIE, at, {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 15 * 60,
-            path: '/',
-          });
-          gracRes.cookies.set(AT_COOKIE_FALLBACK, at, {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 15 * 60,
-            path: '/',
-          });
-          return gracRes;
-        }
+        validUserId = record.user_id;
+      } else {
+        // Reuse ngoai grace period -> Thu hoi toan bo family
+        await supabaseAdmin
+          .from('refresh_token_families')
+          .update({ revoked_at: new Date().toISOString() })
+          .eq('family_id', record.family_id);
+        
+        const res = NextResponse.json({ error: 'token_compromised' }, { status: 401 });
+        res.cookies.delete(AT_COOKIE);
+        res.cookies.delete(RT_COOKIE);
+        return res;
       }
-
-      // REUSE DETECTED: Thu hồi toàn bộ token family của user ngay lập tức!
+    } else {
+      validUserId = record.user_id;
+      // Danh dau da su dung va cap nhat grace period
+      const now = new Date();
+      const graceUntil = new Date(now.getTime() + GRACE_PERIOD_SEC * 1000);
       await supabaseAdmin
         .from('refresh_token_families')
-        .update({ revoked_at: new Date().toISOString() })
-        .eq('family_id', record.family_id)
-        .is('revoked_at', null);
-
-      return clearAuthCookies(
-        NextResponse.json({ error: 'token_reuse_detected' }, { status: 401 })
-      );
+        .update({ revoked_at: now.toISOString(), grace_until: graceUntil.toISOString() })
+        .eq('id', record.id);
     }
 
-    // Token hợp lệ — Verify lại role & status thực tế trong Database (bắt buộc)
-    const { data: profile } = await supabaseAdmin
+    if (!validUserId) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+
+    // Lay thong tin user va cap phat token moi
+    const { data: user } = await supabaseAdmin
       .from('users')
-      .select('role, status')
-      .eq('id', record.user_id)
-      .maybeSingle();
+      .select('*')
+      .eq('id', validUserId)
+      .single();
 
-    if (
-      !profile ||
-      String(profile.role).trim().toLowerCase() !== 'admin' ||
-      String(profile.status).trim().toLowerCase() !== 'approved'
-    ) {
-      // User đã bị hạ quyền hoặc khoá tài khoản -> thu hồi token
-      await supabaseAdmin
-        .from('refresh_token_families')
-        .update({ revoked_at: new Date().toISOString() })
-        .eq('family_id', record.family_id)
-        .is('revoked_at', null);
-
-      return clearAuthCookies(
-        NextResponse.json({ error: 'role_revoked' }, { status: 403 })
-      );
+    if (!user || user.status !== 'approved' || user.role !== 'admin') {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
-    // Thu hồi token cũ và đặt grace period 30 giây
-    const now = new Date();
-    const graceUntil = new Date(now.getTime() + GRACE_PERIOD_SEC * 1000);
-    await supabaseAdmin
-      .from('refresh_token_families')
-      .update({ revoked_at: now.toISOString(), grace_until: graceUntil.toISOString() })
-      .eq('token_hash', tokenHash);
-
-    // Cấp refresh token mới
+    const newAccessToken = await signAccessToken({
+      sub: user.id,
+      role: user.role,
+      status: user.status,
+    });
     const newRefreshValue = crypto.randomUUID();
-    const newHash = await sha256(newRefreshValue);
+    const newRefreshHash = await sha256(newRefreshValue);
     const expiresAt = new Date(Date.now() + REFRESH_TTL_SEC * 1000).toISOString();
 
-    await supabaseAdmin.from('refresh_token_families').insert({
-      user_id: record.user_id,
-      family_id: record.family_id,
-      token_hash: newHash,
-      parent_hash: tokenHash,
-      expires_at: expiresAt,
-    });
+    await supabaseAdmin
+      .from('refresh_token_families')
+      .insert({
+        user_id: user.id,
+        family_id: record.family_id,
+        token_hash: newRefreshHash,
+        expires_at: expiresAt,
+      });
 
-    // Cấp access token mới
-    const newAT = await signAccessToken({
-      sub: record.user_id,
-      role: 'admin',
-      status: 'approved',
+    const isProd = process.env.NODE_ENV === 'production';
+    const res = NextResponse.json({ success: true });
+    
+    res.cookies.set(AT_COOKIE, newAccessToken, {
+      httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60,
     });
-
-    const res = NextResponse.json({ access_token: newAT });
-    res.cookies.set(AT_COOKIE, newAT, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 15 * 60,
-      path: '/',
-    });
-    res.cookies.set(AT_COOKIE_FALLBACK, newAT, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 15 * 60,
-      path: '/',
-    });
-
     res.cookies.set(RT_COOKIE, newRefreshValue, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: REFRESH_TTL_SEC,
-      path: '/',
-    });
-    res.cookies.set(RT_COOKIE_FALLBACK, newRefreshValue, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: REFRESH_TTL_SEC,
-      path: '/',
+      httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: REFRESH_TTL_SEC,
     });
 
     return res;
   } catch (err) {
-    console.error('[POST /api/auth/refresh admin]', err);
-    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
+    console.error('[Refresh Auth]', err);
+    return NextResponse.json({ error: 'internal_server_error' }, { status: 500 });
   }
 }
-

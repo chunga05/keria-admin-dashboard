@@ -1,12 +1,45 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { deleteR2FileByUrl } from '@/lib/r2';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { verifyAccessToken } from '@/lib/jwt';
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 0. KIỂM TRA QUYỀN HẠN ADMIN
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get('dkvn_at')?.value ||
+      cookieStore.get('dkvn_admin_at')?.value;
+
+    const authHeader = request.headers.get('Authorization');
+    if (!token && authHeader?.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
+    }
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Bạn cần đăng nhập để duyệt yêu cầu nhận dấu.' },
+        { status: 401 }
+      );
+    }
+
+    const payload = await verifyAccessToken(token);
+    const isAdmin =
+      payload &&
+      (payload.role === 'admin' || payload.app_role === 'admin') &&
+      payload.status === 'approved';
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden: Bạn không có quyền quản trị viên để thực hiện thao tác này.' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const requestId = Number(id);
 
