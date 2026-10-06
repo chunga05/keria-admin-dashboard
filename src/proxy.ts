@@ -72,10 +72,11 @@ async function verifyAdminAccess(token: string): Promise<{ authorized: boolean; 
       String(userRecord.role).trim().toLowerCase() === 'admin' &&
       String(userRecord.status).trim().toLowerCase() === 'approved';
 
-    // Lưu cache 30s
-    roleCache.set(userId, { isAdmin, expires: Date.now() + 30_000 });
+    // Lưu cache (30s nếu là admin, 5s nếu không phải để cập nhật nhanh hơn khi cấp quyền)
+    const ttl = isAdmin ? 30_000 : 5_000;
+    roleCache.set(userId, { isAdmin, expires: Date.now() + ttl });
 
-    return { authorized: isAdmin };
+    return { authorized: isAdmin, error: isAdmin ? undefined : 'not_admin' };
   } catch (err: any) {
     return { authorized: false, error: err?.message || 'verification_failed' };
   }
@@ -147,10 +148,16 @@ export async function proxy(request: NextRequest) {
 
   // 2. Nếu có access token -> Verify chữ ký và Query DB để kiểm tra role thực tế
   if (token) {
-    const { authorized } = await verifyAdminAccess(token);
+    const { authorized, error } = await verifyAdminAccess(token);
 
     if (authorized) {
       return NextResponse.next();
+    }
+    
+    // Nếu token hợp lệ nhưng người dùng không phải là admin
+    if (error === 'not_admin') {
+      const homeUrl = new URL('/', rawUserBaseUrl);
+      return NextResponse.redirect(homeUrl);
     }
   }
 
