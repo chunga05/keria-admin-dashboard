@@ -1,4 +1,4 @@
-﻿import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 
 export interface AdminTokenPayload extends JWTPayload {
   sub: string;
@@ -9,9 +9,9 @@ export interface AdminTokenPayload extends JWTPayload {
 }
 
 function getSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET;
+  const secret = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || process.env.USER_JWT_SECRET;
   if (!secret) {
-    throw new Error('Missing JWT_SECRET or ADMIN_JWT_SECRET environment variable');
+    throw new Error('Missing JWT_SECRET or ADMIN_JWT_SECRET or USER_JWT_SECRET environment variable');
   }
   return new TextEncoder().encode(secret);
 }

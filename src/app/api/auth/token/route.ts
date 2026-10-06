@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { signAccessToken, sha256 } from '@/lib/jwt';
+import { signAccessToken, sha256, verifyAccessToken } from '@/lib/jwt';
 
 const AT_COOKIE = 'dkvn_at';
 const RT_COOKIE = 'dkvn_rt';
@@ -13,17 +13,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'missing_token' }, { status: 400 });
     }
 
-    const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(access_token);
+    const payload = await verifyAccessToken(access_token);
     
-    if (verifyError || !user) {
-      console.error('[Token Auth] Supabase verify failed:', verifyError);
+    if (!payload || !payload.sub) {
+      console.error('[Token Auth] Custom JWT verify failed');
       return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
     }
+
+    const userId = payload.sub;
 
     const { data: dbUser, error: dbError } = await supabaseAdmin
       .from('users')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle();
 
     if (dbError) {
