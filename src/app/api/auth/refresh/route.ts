@@ -113,7 +113,7 @@ async function handleRefresh(request: NextRequest) {
     const res = NextResponse.json({ success: true });
     
     res.cookies.set(AT_COOKIE, newAccessToken, {
-      httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60,
+      httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60,
     });
     res.cookies.set(RT_COOKIE, newRefreshValue, {
       httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: REFRESH_TTL_SEC,

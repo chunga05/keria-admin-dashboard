@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({ success: true, access_token: customAccessToken });
 
     response.cookies.set(AT_COOKIE, customAccessToken, {
-      httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60,
+      httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60,
     });
     response.cookies.set(RT_COOKIE, refreshValue, {
       httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: REFRESH_TTL_SEC,
