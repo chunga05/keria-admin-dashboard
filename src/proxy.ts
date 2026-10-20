@@ -84,11 +84,17 @@ async function verifyAdminAccess(token: string): Promise<{ authorized: boolean; 
 
 // Các path công khai DUY NHẤT (không được đưa '/' vào đây!)
 const PUBLIC_PATHS = [
-  '/auth/receive', // Trang nhận token nếu chuyển hướng từ origin khác
-  '/api/auth/',    // Các API phục vụ xác thực
+  '/auth/receive',      // Trang nhận token nếu chuyển hướng từ origin khác
+  '/api/auth/',         // Các API phục vụ xác thực
+  '/api/upload/presign', // Endpoint cấp Presigned URL (tự xác thực JWT & phân quyền role user/admin)
 ];
 
 export async function proxy(request: NextRequest) {
+  // Cho phép preflight CORS OPTIONS đi thẳng tới route handler
+  if (request.method === 'OPTIONS') {
+    return NextResponse.next();
+  }
+
   const { pathname } = request.nextUrl;
 
   // Cho phép các static files và public paths
