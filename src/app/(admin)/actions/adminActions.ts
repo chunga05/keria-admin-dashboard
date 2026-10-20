@@ -484,3 +484,59 @@ export async function createFrameAction(input: {
   if (error) return { success: false, message: error.message, data: null };
   return { success: true, message: '', data };
 }
+
+
+export async function getStampRequestsAction(filters?: {
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+}) {
+  const supabase = await createAdminClient();
+  let query = supabase
+    .from('stamp_requests')
+    .select(`
+      id, 
+      user_id, 
+      stage_id, 
+      evidence_image_url, 
+      status, 
+      created_at,
+      users!user_id (
+        display_name,
+        username,
+        avatar_url
+      ),
+      project_stages!stage_id (
+        stage_name
+      )
+    `)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (filters?.startDate) {
+    query = query.gte('created_at', filters.startDate);
+  }
+  if (filters?.endDate) {
+    query = query.lte('created_at', filters.endDate + 'T23:59:59');
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Lỗi fetch stamp requests:', error.message);
+    throw new Error(error.message);
+  }
+
+  let result = (data as any[]) ?? [];
+
+  if (filters?.search && filters.search.trim()) {
+    const s = filters.search.trim().toLowerCase();
+    result = result.filter(
+      (item) =>
+        item.users?.display_name?.toLowerCase().includes(s) ||
+        item.users?.username?.toLowerCase().includes(s) ||
+        item.project_stages?.stage_name?.toLowerCase().includes(s)
+    );
+  }
+
+  return result;
+}

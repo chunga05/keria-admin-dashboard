@@ -3,8 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { Check, X, Eye, Loader2 } from 'lucide-react';
-import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { TableFilter } from '@/components/ui/table/TableFilter';
+import { getStampRequestsAction } from '@/app/(admin)/actions/adminActions';
 
 interface AdminStampRequest {
   id: number;
@@ -13,7 +13,7 @@ interface AdminStampRequest {
   evidence_image_url: string | null;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
-  users?: { display_name: string; email: string };
+  users?: { display_name: string; username?: string; avatar_url?: string };
   project_stages?: { stage_name: string };
 }
 
@@ -27,40 +27,8 @@ export default function AdminStampRequestsPage() {
   const fetchPendingRequests = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('stamp_requests')
-        .select(`
-          id, 
-          user_id, 
-          stage_id, 
-          evidence_image_url, 
-          status, 
-          created_at,
-          users (
-            display_name,
-            email
-          ),
-          project_stages (
-            stage_name
-          )
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (filters.startDate) {
-        query = query.gte('created_at', filters.startDate);
-      }
-      if (filters.endDate) {
-        query = query.lte('created_at', filters.endDate + 'T23:59:59');
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Lỗi fetch admin stamp requests:', error.message);
-      } else if (data) {
-        setRequests(data as any);
-      }
+      const data = await getStampRequestsAction(filters);
+      setRequests(data as any);
     } catch (err: any) {
       console.error('Lỗi khi lấy danh sách yêu cầu:', err.message);
     } finally {
@@ -75,7 +43,6 @@ export default function AdminStampRequestsPage() {
   const handleAction = async (id: number, action: 'approved' | 'rejected') => {
     setProcessingId(id);
     try {
-      // ĐƯỜNG DẪN CHUẨN: Bắt đầu bằng /api/ (bỏ tiền tố app/)
       const res = await fetch(`/api/stamp-requests/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -112,7 +79,7 @@ export default function AdminStampRequestsPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Duyệt Yêu Cầu Nhận Con Dấu</h1>
 
-      <TableFilter onFilterChange={setFilters} placeholder="Tìm kiếm bị vô hiệu hóa, vui lòng lọc theo ngày" />
+      <TableFilter onFilterChange={setFilters} placeholder="Tìm kiếm theo tên user, username, chặng..." />
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -138,10 +105,23 @@ export default function AdminStampRequestsPage() {
               {requests.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50/70">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">
-                      {item.users?.display_name || 'Khách'}
-                    </p>
-                    <p className="text-xs text-gray-500">{item.users?.email}</p>
+                    <div className="flex items-center gap-2">
+                      {item.users?.avatar_url && (
+                        <img
+                          src={item.users.avatar_url}
+                          alt={item.users.display_name}
+                          className="w-7 h-7 rounded-full object-cover shrink-0"
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {item.users?.display_name || 'Khách'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {item.users?.username ? `@${item.users.username}` : ''}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 font-medium text-blue-600">
                     {item.project_stages?.stage_name || `#${item.stage_id}`}
