@@ -11,6 +11,18 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'media.dearkeriavn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.dearkeriavn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'dearkeriavn.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'i.pravatar.cc',
       },
       {
